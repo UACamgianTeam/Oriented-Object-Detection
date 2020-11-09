@@ -95,6 +95,29 @@ def construct_category_index(train_annotations: dict, desired_categories: set) -
             }
     return category_index
 
+def convert_to_tensors(train_images_np: List, gt_boxes: List, gt_classes: List, 
+        label_id_offsets: dict, num_classes: int) -> Tuple:
+    """ Converts class labels to one-hot; converts everything to tensors.
+
+    The `label_id_offset` here shifts all classes by a certain number of indices;
+    we do this here so that the model receives one-hot labels where non-background
+    classes start counting at the zeroth index.  This is ordinarily just handled
+    automatically in our training binaries, but we need to reproduce it here.
+    """
+    train_image_tensors = []
+    gt_classes_one_hot_tensors = []
+    gt_box_tensors = []
+    for (train_image_np, gt_box_np, gt_class_np) in zip(train_images_np, gt_boxes, gt_classes):
+        train_image_tensors.append(tf.expand_dims(tf.convert_to_tensor(
+            train_image_np, dtype=tf.float32), axis=0))
+        gt_box_tensors.append(tf.convert_to_tensor(gt_box_np, dtype=tf.float32))
+        zero_indexed_groundtruth_classes = tf.convert_to_tensor(gt_class_np)
+        gt_classes_one_hot_tensors.append(tf.one_hot(
+            zero_indexed_groundtruth_classes, num_classes))
+
+    return (train_image_tensors, gt_box_tensors, gt_classes_one_hot_tensors)
+
+
 # ************** Internal helper functions *****************
 
 def construct_images_np(images_dict: dict, file_name_dict: dict, train_image_dir: str, 

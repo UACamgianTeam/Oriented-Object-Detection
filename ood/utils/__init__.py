@@ -1,5 +1,4 @@
 
 # Don't depend on sibling packages
-from . import plot
-from . import dota
-from . import plot
+from .plot import *
+from .dota import *

@@ -1,6 +1,6 @@
 
 # Don't depend on sibling modules
-from . import cocoeval
+from .cocoeval import *
 
 # Do depend on sibling modules
-from . import eval
+from .eval import *

@@ -122,19 +122,16 @@ def get_same_class_annotations(image_info: dict) -> Generator[List,List, None]:
 
     categories = list(set(predicted_classes)) # get all unique categories
     for category in categories:
-        # print('category: ' + str(category))
         category_classes = []
         category_boxes = []
         category_scores = []
         for index, predicted_class in enumerate(predicted_classes):
             if predicted_class == category:
                 # preserve annotation
-                # category_classes.append(predicted_class)
                 category_boxes.append(predicted_boxes[index])
                 category_scores.append(predicted_scores[index])
             else: # insert terrible scored box (so won't be chosen in nms)
                 # we do this because we want to preserve the original indices
-                # category_classes.append(predicted_class)
                 category_boxes.append([0,0,1,1])
                 category_scores.append(0.0)
         

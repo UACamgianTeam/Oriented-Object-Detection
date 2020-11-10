@@ -64,31 +64,44 @@ def map_box_to_image(box: Tuple, win_dimensions: Tuple, img_dimensions: Tuple) -
     return [ymin, xmin, ymax, xmax]
 
 def run_nms(test_images_dict: dict) -> dict:
-    """ Runs non-maximum suppression on all of the predicted boxes/scores for each of the images and
-    all of the images' windows
+    """ Runs non-maximum suppression on all of the predicted boxes/scores for each of the class-categories.
+    It does this...
+    (1) for each of the images
+    (2) for each image's windows
 
     Stores the results in test_images dict
 
-    This should prune any boxes that overlap considerably and it should favor the higher-scoring boxes
+    This should prune any boxes that have the same class-category and that overlap considerably and it 
+    should favor the higher-scoring boxes.
     """
     # run non-maximum suppression per image
     for image_id, image_info in test_images_dict.items():
-        # convert boxes to coordinates that nms wants
-        predicted_boxes = [percentage_to_coco(box, image_info['dimensions']) for box in image_info['predicted_boxes']]
+        image_indices = [] # the total list of indices to keep
+        # for each class-category, run non-maximum suppression and add resulting indices to total list of indices
+        for (predicted_boxes, predicted_scores) in get_same_class_annotations(image_info):
+            image_class_indices = nms.boxes(predicted_boxes, predicted_scores)
+            image_class_indices = [index for index in image_class_indices 
+                                        if predicted_scores[index] != 0.0] # filter out placeholders
+            image_indices.extend(image_class_indices)
 
-        image_indices = nms.boxes(predicted_boxes, image_info['predicted_scores'])
+        # only keep specified indices of annotations
         test_images_dict[image_id]['predicted_boxes']  = \
-            [box for index, box in enumerate(image_info['predicted_boxes'])  if index in image_indices]
+            [box for index, box in enumerate(image_info['predicted_boxes']) if index in image_indices]
         test_images_dict[image_id]['predicted_classes']  = \
             [category for index, category in enumerate(image_info['predicted_classes'])  if index in image_indices]
         test_images_dict[image_id]['predicted_scores'] = \
             [score for index, score in enumerate(image_info['predicted_scores']) if index in image_indices]
-        # run non-maxmium suppression per-window
-        for window_id, window_info in image_info['windows'].items():
-            # convert boxes to coordinates that nms wants
-            predicted_boxes = [percentage_to_coco(box, window_info['dimensions']) for box in window_info['predicted_boxes']]
 
-            window_indices = nms.boxes(predicted_boxes, window_info['predicted_scores'])
+        # run non-maximum suppression per-window
+        for window_id, window_info in image_info['windows'].items():
+            window_indices = [] # the total list of indices to keep
+            # for each class-category, run non-maximum suppression and add resulting indices to total list of indices
+            for (predicted_boxes, predicted_scores) in get_same_class_annotations(window_info):
+                window_class_indices = nms.boxes(predicted_boxes, predicted_scores)
+                window_class_indices = [index for index in window_class_indices 
+                                            if predicted_scores[index] != 0.0] # filter out placeholders
+                window_indices.extend(window_class_indices)
+
             test_images_dict[image_id]['windows'][window_id]['predicted_boxes'] = \
                 [box for index, box in enumerate(window_info['predicted_boxes'])  if index in window_indices]
             test_images_dict[image_id]['windows'][window_id]['predicted_classes'] = \
@@ -98,19 +111,30 @@ def run_nms(test_images_dict: dict) -> dict:
 
     return test_images_dict
 
-def non_max_suppression(boxes: List, scores: List) -> List:
-    """ Takes a list of boxes in the format (xmin,ymin,xmax,ymax) and a list of scores
-    associated with those boxes and...
-        (1) Changes format of boxes -> (xmin,ymin,width,height)
-        (2) Runs non-maximum suppression on the boxes/scores
-        (3) Returns a list of indices that should be kept
-    """
-    # boxes stored as (xmin,ymin,xmax,ymax) so need to map...
-    for index, box in enumerate(boxes):
-        (ymin, xmin, ymax, xmax) = box
-        boxes[index] = (xmin,ymin,xmax-xmin,ymax-ymin)
-    # takes boxes in form (x,y,w,h)
-    return nms.boxes(boxes, scores)
+def get_same_class_annotations(image_info: dict) -> Generator[List,List, None]:
+    """ Returns a Generator of (predicted_boxes, predicted_scores) tuples per class-category """
+    predicted_classes = image_info['predicted_classes']
+    if len(predicted_classes) == 0: return
+
+    # convert boxes to coordinates that nms wants
+    predicted_boxes = [percentage_to_coco(box, image_info['dimensions']) for box in image_info['predicted_boxes']]
+    predicted_scores = image_info['predicted_scores']
+
+    categories = list(set(predicted_classes)) # get all unique categories
+    for category in categories:
+        category_boxes = []
+        category_scores = []
+        for index, predicted_class in enumerate(predicted_classes):
+            if predicted_class == category:
+                # preserve annotation
+                category_boxes.append(predicted_boxes[index])
+                category_scores.append(predicted_scores[index])
+            else: # insert terrible scored box (so won't be chosen in nms)
+                # we do this because we want to preserve the original indices
+                category_boxes.append([0,0,1,1])
+                category_scores.append(0.0)
+        
+        yield (category_boxes, category_scores)
 
 def percentage_to_coco(box: Tuple, img_dimensions: Tuple) -> Tuple:
     """ Maps a box in the relative coords format (ymin%, xmin%, ymax%, xmax%)

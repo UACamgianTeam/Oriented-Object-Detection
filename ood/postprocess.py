@@ -122,7 +122,6 @@ def get_same_class_annotations(image_info: dict) -> Generator[List,List, None]:
 
     categories = list(set(predicted_classes)) # get all unique categories
     for category in categories:
-        category_classes = []
         category_boxes = []
         category_scores = []
         for index, predicted_class in enumerate(predicted_classes):

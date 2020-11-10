@@ -20,7 +20,15 @@ def get_images(image_dir: str, file_name_dict: dict) -> Generator[ np.ndarray, N
     # print(file_name)
     image_path = os.path.join(image_dir, file_name)
     # print(image_path + ' -> ' + str(id))
-    yield load_image_into_numpy_array(image_path)
+    image = np.array([])
+    try:
+      image = load_image_into_numpy_array(image_path)
+    except ValueError as e: # if we can't load image, print error and don't use it.
+      print('could not load image at ' + image_path)
+      print(e)
+    
+    if image.size != 0: # if successfully loaded image
+      yield load_image_into_numpy_array(image_path)
 
 def get_annotations(annotation_path: str) -> dict:
   """ Loads the annotation file at the given path """

@@ -10,7 +10,7 @@ from object_detection.utils import visualization_utils as viz_utils
 min_threshold = 0.5 # paper uses 0.3 but I found 0.5 to work best here
 
 def visualize_image_set(images_np: List, boxes_list: List, classes_list: List, 
-    category_index: dict, title: str, min_threshold: float, scores_list = []) -> None:
+    category_index: dict, title: str, min_threshold: float, scores_list = [], interactive=True) -> None:
   """ Displays the first 16 images and their corresponding annotations for the given 
   image set data 
   """
@@ -50,7 +50,7 @@ def visualize_image_set(images_np: List, boxes_list: List, classes_list: List,
         categories,
         scores, 
         category_index)
-  plt.ion()
+  if interactive: plt.ion()
   plt.show()
   # plt.savefig('tests/test_set.png')
   plt.pause(0.001)

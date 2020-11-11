@@ -36,7 +36,7 @@ def get_windows(arr: np.ndarray, win_height: int, win_width: int,
           win = np.pad(win, ((pad_y, 0), (0, pad_x), (0,0)), mode='constant', constant_values=3)
         yield (win, xmin, ymin, new_width, new_height)
 
-def get_window_ids(box: List, image_dict: dict) -> List:
+def get_window_ids(box: List, image_dict: dict, min_coverage=.7) -> List:
   """ Maps an annotation box to its corresponding window_ids
   Previously associated with the image_id
 
@@ -54,7 +54,7 @@ def get_window_ids(box: List, image_dict: dict) -> List:
     (win_ymin, win_xmin, win_ymax, win_xmax) = window_dict['dimension_box']
     window_box = [[win_xmin,win_ymax], [win_xmax,win_ymax], [win_xmax,win_ymin], [win_xmin,win_ymin]]
     # Annotation belongs to window_id if at least 70% of it is in the window
-    if percent_overlap(annotation_box, window_box) >= 0.7:
+    if percent_overlap(annotation_box, window_box) >= min_coverage:
       window_ids.append(window_id)
 
   return window_ids

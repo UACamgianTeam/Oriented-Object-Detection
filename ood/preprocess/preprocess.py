@@ -1,13 +1,63 @@
 import tensorflow as tf
 import numpy as np
 from typing import Tuple, List
+import json
 
 from .window import get_windows, get_window_ids, map_box_to_window
 
 from ..utils.load_data import get_images
 #from utils.load_data import get_images
 
+
+# ********** Ethan's heavy refactoring **********
+
+def eth_preprocess_images(images_dict,
+        file_name_dict,
+        image_dir,
+        annotations,
+        category_index,
+        win_set,
+        verbose: bool = False):
+
+    # So I can still use normal naming conventions internallly
+    slice_windows = eth_slice_windows
+
+    # Don't modify original versions
+    images_dict = json.loads( json.dumps(images_dict) )
+    file_name_dict = json.loads( json.dumps(file_name_dict) )
+
+    for (image_index, image_np) in enumerate(image_dir, file_name_dict):
+        (window_dict, windows_np) = slice_windows(image_np, win_set)
+        pass
+
+def ethan_filter_annotations():
+    pass
+
+def eth_slice_windows(image_np : np.ndarray, win_set : Tuple[int,int,int,int] = None) -> Tuple[List[np.ndarray], dict]:
+    window_dict = dict()
+    windows_np = []
+    for index, image_np in enumerate(get_images(train_image_dir, file_name_dict)):
+        # divide image into windows of size win_height * win_width 
+        # and add to dictionary corresponding to that image
+        windows = {}
+        for win_index, (window, xmin, ymin, xmax, ymax) in enumerate(get_windows(image_np, *win_set, False)):
+            if verbose: print('NEW WINDOW with dimensions ' + str(window.shape))
+            window_dict = {}
+            # window_dict['window'] = window
+            window_dict['xmin'] = xmin
+            window_dict['ymin'] = ymin
+            window_dict['xmax'] = xmax
+            window_dict['ymax'] = ymax
+            window_dict['dimension_box'] = (ymin, xmin, ymax, xmax)
+            window_dict['dimensions'] = (xmax - xmin, ymax - ymin)
+            window_dict['boxes'] = []
+            window_dict['classes'] = []
+            windows[len(windows_np)] = window_dict # 0,1,2,3...# of windows - 1
+            windows_np.append(window)
+    return window_dict
+
 # ********** external functions *****************
+
 
 def preprocess_train_images(images_dict: dict, file_name_dict: dict, train_image_dir: str, 
                             train_annotations: dict, category_index: dict,

@@ -9,44 +9,59 @@ import json
 from .window import get_windows, get_window_ids, map_box_to_window
 from ..utils.load_data import get_images
 
+class Preprocessor(object):
 
-def preprocess_images(images_dict,
-        file_name_dict,
-        image_dir,
-        annotations,
-        category_index,
-        win_set,
-        verbose: bool = False):
-    """
-    Statetless: does not modify images_dict or file_name_dict
+    def __init__(self,
+            images_dict,
+            file_name_dict,
+            image_dir,
+            annotations,
+            category_index):
 
-    :returns: A Generator of (images_dict, windows_np, gt_boxes, gt_classes, no_annotation_inds). The images_dict is the most-up-to-date version of the images_dict at the current iteration.
-    """
+        self._images_dict    = _copy_json(images_dict)
+        self._image_dir      = image_dir
+        self._file_name_dict = file_name_dict
+        self._annotations    = annotations
+        self._category_index = category_index
 
-    # Don't modify original version--Make a deep copy
-    images_dict = _copy_json(images_dict)
+    @property
+    def images_dict(self):
+        return self._images_dict
+    
+    def iterate(self,
+                win_set            = None,
+                keep_empty_windows = False):
+        images_dict    = self._images_dict
+        image_dir      = self._image_dir
+        file_name_dict = self._file_name_dict 
+        annotations    = self._annotations    
+        category_index = self._category_index 
 
-    total_window_count = 0
-    # start=1 because image_dict uses 1-based indexing
-    for (image_id, image_np) in enumerate(get_images(image_dir, file_name_dict), start=1 ):
-        (windows_dict, windows_np) = _slice_windows(image_np, win_set)
-        # Ensures every window has a unique id
-        windows_dict = { (k+total_window_count):v for (k,v) in windows_dict.items() }
-        num_windows = len(windows_np)
-        total_window_count += num_windows
-        image_dict = images_dict[image_id]
-        image_dict["windows"] = windows_dict
-        image_dict["num_windows"] = len(image_dict["windows"])
+        total_window_count = 0
+        # start=1 because image_dict uses 1-based indexing
+        for (image_id, image_np) in enumerate(get_images(image_dir, file_name_dict), start=1 ):
+            (windows_dict, windows_np) = _slice_windows(image_np, win_set)
+            # Ensures every window has a unique id
+            windows_dict = { (k+total_window_count):v for (k,v) in windows_dict.items() }
+            num_windows = len(windows_np)
+            total_window_count += num_windows
+            image_dict = images_dict[image_id]
+            image_dict["windows"] = windows_dict
+            image_dict["num_windows"] = len(image_dict["windows"])
+    
+            (image_dict_updates, windows_dict_updates) = \
+                    _map_annotations(image_id, image_dict, annotations, category_index)
+            image_dict["boxes"].extend(image_dict_updates["boxes"])
+            image_dict["classes"].extend(image_dict_updates["classes"])
+            for (window_id, entry) in windows_dict_updates.items():
+                windows_dict[window_id]["boxes"].extend(entry["boxes"])
+                windows_dict[window_id]["classes"].extend(entry["classes"])
+            (gt_boxes, gt_classes, no_annotation_ids) = _construct_gt(image_dict)
 
-        (image_dict_updates, windows_dict_updates) = \
-                _map_annotations(image_id, image_dict, annotations, category_index)
-        image_dict["boxes"].extend(image_dict_updates["boxes"])
-        image_dict["classes"].extend(image_dict_updates["classes"])
-        for (window_id, entry) in windows_dict_updates.items():
-            windows_dict[window_id]["boxes"].extend(entry["boxes"])
-            windows_dict[window_id]["classes"].extend(entry["classes"])
-        (gt_boxes, gt_classes, no_annotation_ids) = _construct_gt(image_dict)
-        yield (images_dict, windows_np, gt_boxes, gt_classes, no_annotation_ids)
+            for (i, (window_np, win_gt_boxes, win_gt_classes)) in enumerate(zip(windows_np, gt_boxes, gt_classes)):
+                if keep_empty_windows or (i not in no_annotation_ids):
+                    yield (window_np, win_gt_boxes, win_gt_classes)
+
 
 def construct_category_index(train_annotations: dict, desired_categories: set) -> dict:
     """ Takes the category index from the training annotations and constructs it in the
@@ -203,7 +218,7 @@ def _copy_json(root_obj):
     return json.loads( json.dumps(root_obj), object_hook=hook)
 
 
-__all__ = ["preprocess_images",
+__all__ = ["Preprocessor",
         "construct_category_index",
         "convert_to_tensors",
         "map_category_ids_to_index",

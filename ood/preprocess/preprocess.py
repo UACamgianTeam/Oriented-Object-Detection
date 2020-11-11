@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
-from typing import Tuple, List
+from typing import Tuple, List, Set
+from collections import defaultdict
 import json
 
 from .window import get_windows, get_window_ids, map_box_to_window
@@ -10,6 +11,19 @@ from ..utils.load_data import get_images
 
 
 # ********** Ethan's heavy refactoring **********
+import pdb
+
+
+def copy_json(root_obj):
+    def hook(obj):
+        def coerce_num(x):
+            try: return int(x)
+            except ValueError as e: pass
+            try:                      return float(x)
+            except ValueError as e:   pass
+            return x
+        return { coerce_num(k):v for (k,v) in obj.items() }
+    return json.loads( json.dumps(root_obj), object_hook=hook)
 
 def eth_preprocess_images(images_dict,
         file_name_dict,
@@ -18,43 +32,111 @@ def eth_preprocess_images(images_dict,
         category_index,
         win_set,
         verbose: bool = False):
+    """
+    Statetless: does not modify images_dict or file_name_dict
+
+    :returns: A Generator of (images_dict, windows_np, gt_boxes, gt_classes, no_annotation_inds). The images_dict is the most-up-to-date version of the images_dict at the current iteration.
+    """
 
     # So I can still use normal naming conventions internallly
     slice_windows = eth_slice_windows
+    assign_annotations = eth_assign_annotations
+    construct_gt = eth_construct_gt
 
-    # Don't modify original versions
-    images_dict = json.loads( json.dumps(images_dict) )
-    file_name_dict = json.loads( json.dumps(file_name_dict) )
+    # Don't modify original version--Make a deep copy
+    images_dict = copy_json(images_dict)
 
-    for (image_index, image_np) in enumerate(image_dir, file_name_dict):
-        (window_dict, windows_np) = slice_windows(image_np, win_set)
-        pass
+    total_window_count = 0
+    # start=1 because image_dict uses 1-based indexing
+    for (image_id, image_np) in enumerate(get_images(image_dir, file_name_dict), start=1 ):
+        (windows_dict, windows_np) = slice_windows(image_np, win_set)
+        # Ensures every window has a unique id
+        windows_dict = { (k+total_window_count):v for (k,v) in windows_dict.items() }
+        num_windows = len(windows_np)
+        total_window_count += num_windows
+        image_dict = images_dict[image_id]
+        image_dict["windows"] = windows_dict
+        image_dict["num_windows"] = len(image_dict["windows"])
 
-def ethan_filter_annotations():
-    pass
+        (image_dict_updates, windows_dict_updates) = \
+                assign_annotations(image_id, image_dict, annotations, category_index)
+        image_dict["boxes"].extend(image_dict_updates["boxes"])
+        image_dict["classes"].extend(image_dict_updates["classes"])
+        for (window_id, entry) in windows_dict_updates.items():
+            windows_dict[window_id]["boxes"].extend(entry["boxes"])
+            windows_dict[window_id]["classes"].extend(entry["classes"])
+        (gt_boxes, gt_classes, no_annotation_ids) = construct_gt(image_dict)
+        pdb.set_trace()
+        yield (images_dict, windows_np, gt_boxes, gt_classes, no_annotation_ids)
+
+def eth_construct_gt(image_dict) -> Tuple[List[np.ndarray],List[np.ndarray],Set[int]]:
+    num_windows = len(image_dict["windows"])
+    gt_boxes    = [None for _ in range(num_windows)]
+    gt_classes  = [None for _ in range(num_windows)]
+    no_annotation_ids = set()
+    for (i, (win_id, window)) in enumerate(image_dict["windows"].items()):
+        if window["boxes"]:
+            gt_boxes[i] = np.array(window["boxes"],   dtype=np.float32)
+            gt_classes[i] = np.array(window["classes"], dtype=np.int32)
+            assert len(gt_boxes[i]) == len(gt_classes[i])
+        else:
+            no_annotation_ids.add(i)
+    return (gt_boxes, gt_classes, no_annotation_ids)
+
+def eth_assign_annotations(image_id : int,
+                            image_dict : dict,
+                            annotations : dict,
+                            category_index : dict,
+                            min_coverage : float = .7,
+                            verbose : bool = False):
+    """
+    Stateless: does not modify image_dict
+
+    :param image_id: The id for that image
+    :param image_dict: The entry for that single image
+
+    :returns: (image_dict_updates, window_dict_updates)
+    """
+    annotations_dict = annotations["annotations"]
+    annotations_dict = filter(lambda a: a["image_id"] == image_id, annotations_dict)
+    annotations_dict = filter(lambda a: a["category_id"] in category_index, annotations_dict)
+    image_updates = {"boxes": [], "classes": []}
+    window_updates = defaultdict(lambda: {"boxes": [], "classes": []})
+
+    for annotation in annotations_dict:
+        hbb = annotation['bbox'] # COCO stores annotations as [x,y,width,height]
+        # calculate HBB in pure-coordinate format
+        xmin = hbb[0]
+        ymin = hbb[1]
+        xmax = xmin + hbb[2]
+        ymax = ymin + hbb[3]
+        box = [ymin, xmin, ymax, xmax]
+        image_updates["boxes"].append(box)
+        image_updates["classes"].append(annotation["category_id"]) 
+        windows_ids = get_window_ids(box, image_dict)
+        for window_id in windows_ids:
+            new_box = map_box_to_window(box, image_dict['dimensions'], image_dict['windows'][window_id])
+            window_updates[window_id]["boxes"].append(new_box)
+            window_updates[window_id]["classes"].append(annotation["category_id"])
+    return (image_updates, window_updates)
 
 def eth_slice_windows(image_np : np.ndarray, win_set : Tuple[int,int,int,int] = None) -> Tuple[List[np.ndarray], dict]:
-    window_dict = dict()
     windows_np = []
-    for index, image_np in enumerate(get_images(train_image_dir, file_name_dict)):
-        # divide image into windows of size win_height * win_width 
-        # and add to dictionary corresponding to that image
-        windows = {}
-        for win_index, (window, xmin, ymin, xmax, ymax) in enumerate(get_windows(image_np, *win_set, False)):
-            if verbose: print('NEW WINDOW with dimensions ' + str(window.shape))
-            window_dict = {}
-            # window_dict['window'] = window
-            window_dict['xmin'] = xmin
-            window_dict['ymin'] = ymin
-            window_dict['xmax'] = xmax
-            window_dict['ymax'] = ymax
-            window_dict['dimension_box'] = (ymin, xmin, ymax, xmax)
-            window_dict['dimensions'] = (xmax - xmin, ymax - ymin)
-            window_dict['boxes'] = []
-            window_dict['classes'] = []
-            windows[len(windows_np)] = window_dict # 0,1,2,3...# of windows - 1
-            windows_np.append(window)
-    return window_dict
+    windows = dict()
+    for win_index, (window, xmin, ymin, xmax, ymax) in enumerate(get_windows(image_np, *win_set, False)):
+        window_dict = {}
+        # window_dict['window'] = window
+        window_dict['xmin'] = xmin
+        window_dict['ymin'] = ymin
+        window_dict['xmax'] = xmax
+        window_dict['ymax'] = ymax
+        window_dict['dimension_box'] = (ymin, xmin, ymax, xmax)
+        window_dict['dimensions'] = (xmax - xmin, ymax - ymin)
+        window_dict['boxes'] = []
+        window_dict['classes'] = []
+        windows[len(windows_np)] = window_dict # 0,1,2,3...# of windows - 1
+        windows_np.append(window)
+    return (windows, windows_np)
 
 # ********** external functions *****************
 
@@ -239,7 +321,6 @@ def construct_gt(images_dict: dict, num_windows: int, verbose: bool) -> Tuple[Li
     if verbose:
         print(str(percent_annotated_windows) + '% of windows have annotations associated with them.')
         print('This is ' + str(num_annotated_windows) + ' windows out of ' + str(num_windows))
-
     return (gt_boxes, gt_classes, no_annotation_ids)
 
 def map_annotations(images_dict: dict, annotations: dict, category_index: dict, 

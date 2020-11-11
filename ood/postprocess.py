@@ -1,7 +1,7 @@
 import numpy as np
 from nms import nms
 
-from typing import List, Tuple
+from typing import List, Tuple, Generator
 
 def restore_image_detections(test_images_dict: dict, min_threshold: float) -> (dict, List, List, List):
     """ Combine window results to restore detection results on original image 

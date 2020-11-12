@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
+from .utils import copy_json
 from .preprocess import map_indices_to_category_ids
 
 from typing import List, Tuple
@@ -10,6 +11,8 @@ def run_inference(test_images_np: List, test_images_dict: dict, label_id_offsets
     """ Runs the detection process on each of the windows in the test set and
     stores the results in test_windows_dict
     """
+    test_images_dict = copy_json(test_images_dict) # Don't modify original dict
+
     predicted_boxes_list   = [None] * len(test_images_np)
     predicted_classes_list = [None] * len(test_images_np)
     predicted_scores_list  = [None] * len(test_images_np)

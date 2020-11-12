@@ -7,6 +7,7 @@ from collections import defaultdict
 import json
 # Local
 from .window import get_windows, get_window_ids, map_box_to_window
+from ..utils import copy_json
 from ..utils.load_data import get_images
 
 class Preprocessor(object):
@@ -101,9 +102,10 @@ def convert_to_tensors(train_images_np: List, gt_boxes: List, gt_classes: List,
 
 
 def map_category_ids_to_index(label_id_offsets: dict, category_ids_list: List) -> List:
+    new_list = []
     for index, category_ids in enumerate(category_ids_list):
-        category_ids_list[index] = [label_id_offsets['map_to_index'][category_id] for category_id in category_ids_list[index]]
-    return category_ids_list
+        new_list.append( [label_id_offsets['map_to_index'][category_id] for category_id in category_ids_list[index]] )
+    return new_list
 
 def map_indices_to_category_ids(label_id_offsets: dict, indices: List) -> List:
         return [label_id_offsets['map_to_category'][index] for index in indices]

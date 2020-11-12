@@ -90,10 +90,8 @@ def write_window_results(results_path: str, test_images_dict: dict, min_threshol
     with open(results_path, 'w') as outfile:
         json.dump(results, outfile)
 
-def write_window_validation_file(data_path: str, test_annotations: dict, test_images_dict: dict) -> None:
+def write_window_validation_file(window_validation_file_path: str, test_annotations: dict, test_images_dict: dict) -> None:
     """ Writes the validation json file for the windows in the test set """
-    window_validation_file_path = data_path + '/annotations/validation_window.json'
-
     window_validation = {}
     window_validation['info'] = test_annotations['info']
     # construct a list of windows

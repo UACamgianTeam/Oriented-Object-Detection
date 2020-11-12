@@ -7,6 +7,17 @@ from PIL import Image
 
 from typing import Generator
 
+def copy_json(root_obj):
+    def hook(obj):
+        def coerce_num(x):
+            try: return int(x)
+            except ValueError as e: pass
+            try:                      return float(x)
+            except ValueError as e:   pass
+            return x
+        return { coerce_num(k):v for (k,v) in obj.items() }
+    return json.loads( json.dumps(root_obj), object_hook=hook)
+
 def get_images(image_dir: str, file_name_dict: dict) -> Generator[ np.ndarray, None, None ]:
   """ A generator for images given the image directory; yields images as numpy arrays
   in the order of the file names in the file name dictionary

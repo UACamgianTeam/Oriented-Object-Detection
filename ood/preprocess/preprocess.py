@@ -25,9 +25,18 @@ class Preprocessor(object):
         self._annotations    = annotations
         self._category_index = category_index
 
+        self._cur_window_dict = None
+
     @property
     def images_dict(self):
         return self._images_dict
+
+    @property
+    def cur_window_dict(self):
+        """
+        Dictionary of the window that was just yielded
+        """
+        return self._cur_window_dict
     
     def iterate(self,
                 win_set            = None,
@@ -43,7 +52,12 @@ class Preprocessor(object):
         for (image_id, image_np) in enumerate(get_images(image_dir, file_name_dict), start=1 ):
             (windows_dict, windows_np) = _slice_windows(image_np, win_set)
             # Ensures every window has a unique id
+
+            for k in windows_dict:
+                windows_dict[k]["window_array_index"] = k
             windows_dict = { (k+total_window_count):v for (k,v) in windows_dict.items() }
+
+
             num_windows = len(windows_np)
             total_window_count += num_windows
             image_dict = images_dict[image_id]
@@ -57,12 +71,15 @@ class Preprocessor(object):
             for (window_id, entry) in windows_dict_updates.items():
                 windows_dict[window_id]["boxes"].extend(entry["boxes"])
                 windows_dict[window_id]["classes"].extend(entry["classes"])
-            (gt_boxes, gt_classes, no_annotation_ids) = _construct_gt(image_dict)
 
-            for (i, (window_np, win_gt_boxes, win_gt_classes)) in enumerate(zip(windows_np, gt_boxes, gt_classes)):
-                if keep_empty_windows or (i not in no_annotation_ids):
-                    yield (window_np, win_gt_boxes, win_gt_classes)
+            for (window_id, window_dict) in windows_dict.items():
+                (gt_boxes,gt_classes, has_annotations) = _construct_gt_window(window_dict)
 
+                if keep_empty_windows or has_annotations: 
+                    arr_index = window_dict["window_array_index"]
+                    self._cur_window_dict = window_dict
+                    window_np = windows_np[arr_index]
+                    yield (window_np, gt_boxes, gt_classes)
 
 def construct_category_index(train_annotations: dict, desired_categories: set) -> dict:
     """ Takes the category index from the training annotations and constructs it in the
@@ -176,19 +193,13 @@ def _map_annotations(image_id : int,
             window_updates[window_id]["classes"].append(annotation["category_id"])
     return (image_updates, window_updates)
 
-def _construct_gt(image_dict) -> Tuple[List[np.ndarray],List[np.ndarray],Set[int]]:
-    num_windows = len(image_dict["windows"])
-    gt_boxes    = [None for _ in range(num_windows)]
-    gt_classes  = [None for _ in range(num_windows)]
-    no_annotation_ids = set()
-    for (i, (win_id, window)) in enumerate(image_dict["windows"].items()):
-        if window["boxes"]:
-            gt_boxes[i] = np.array(window["boxes"],   dtype=np.float32)
-            gt_classes[i] = np.array(window["classes"], dtype=np.int32)
-            assert len(gt_boxes[i]) == len(gt_classes[i])
-        else:
-            no_annotation_ids.add(i)
-    return (gt_boxes, gt_classes, no_annotation_ids)
+def _construct_gt_window(window):
+    if not window["boxes"]:
+        return (None, None, False)
+    gt_boxes   = np.array(window["boxes"], dtype=np.float32)
+    gt_classes = np.array(window["classes"], dtype=np.int32)
+    assert len(gt_boxes) == len(gt_classes)
+    return (gt_boxes, gt_classes, True)
 
 def _slice_windows(image_np : np.ndarray, win_set : Tuple[int,int,int,int] = None) -> Tuple[List[np.ndarray], dict]:
     windows_np = []

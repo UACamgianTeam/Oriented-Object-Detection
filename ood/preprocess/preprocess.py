@@ -25,18 +25,23 @@ class Preprocessor(object):
         self._annotations    = annotations
         self._category_index = category_index
 
-        self._cur_window_dict = None
+        self._cur_window_id = None
+        self._cur_image_id = None
 
     @property
     def images_dict(self):
         return self._images_dict
 
     @property
-    def cur_window_dict(self):
+    def cur_image_id(self):
+        return self._cur_image_id
+
+    @property
+    def cur_window_id(self):
         """
         Dictionary of the window that was just yielded
         """
-        return self._cur_window_dict
+        return self._cur_window_id
     
     def iterate(self,
                 win_set            = None,
@@ -72,12 +77,14 @@ class Preprocessor(object):
                 windows_dict[window_id]["boxes"].extend(entry["boxes"])
                 windows_dict[window_id]["classes"].extend(entry["classes"])
 
-            for (window_id, window_dict) in windows_dict.items():
+            sorted_ids = sorted(windows_dict.keys())
+            for window_id in sorted_ids:
+                window_dict = windows_dict[window_id]
                 (gt_boxes,gt_classes, has_annotations) = _construct_gt_window(window_dict)
-
                 if keep_empty_windows or has_annotations: 
                     arr_index = window_dict["window_array_index"]
-                    self._cur_window_dict = window_dict
+                    self._cur_window_id = window_id
+                    self._cur_image_id = image_id
                     window_np = windows_np[arr_index]
                     yield (window_np, gt_boxes, gt_classes)
 

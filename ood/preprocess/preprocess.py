@@ -19,13 +19,17 @@ class Preprocessor(object):
             file_name_dict,
             image_dir,
             annotations,
-            category_index):
+            category_index,
+            win_set=None,
+            min_coverage=_DEFAULT_MIN_COVERAGE):
 
         self._images_dict    = _copy_json(images_dict)
         self._image_dir      = image_dir
         self._file_name_dict = file_name_dict
         self._annotations    = annotations
         self._category_index = category_index
+        self._win_set        = win_set
+        self._min_coverage   = min_coverage
 
         self._cur_window_id = None
         self._cur_image_id = None
@@ -45,15 +49,14 @@ class Preprocessor(object):
         """
         return self._cur_window_id
     
-    def iterate(self,
-                win_set                    = None,
-                min_coverage       : float = _DEFAULT_MIN_COVERAGE,
-                keep_empty_windows : bool  = False):
+    def iterate(self, keep_empty_windows : bool  = False):
         images_dict    = self._images_dict
         image_dir      = self._image_dir
         file_name_dict = self._file_name_dict 
         annotations    = self._annotations    
         category_index = self._category_index 
+        min_coverage   = self._min_coverage
+        win_set        = self._win_set
 
         total_window_count = 0
         # start=1 because image_dict uses 1-based indexing

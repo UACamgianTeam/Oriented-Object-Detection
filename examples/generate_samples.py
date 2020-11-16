@@ -35,8 +35,8 @@ win_set = (win_height, win_width, win_stride_vert, win_stride_horiz) # windowing
 import matplotlib
 matplotlib.use("TkAgg")
 
-preprocessor = Preprocessor(images_dict, file_name_dict, image_dir, annotations, category_index)
-for (window_np, box_set, class_set) in preprocessor.iterate(win_set=win_set, min_coverage=.3):
+preprocessor = Preprocessor(images_dict, file_name_dict, image_dir, annotations, category_index, win_set=win_set, min_coverage=.3)
+for (window_np, box_set, class_set) in preprocessor.iterate():
     visualize_image_set([window_np],
             [box_set],
             [class_set],

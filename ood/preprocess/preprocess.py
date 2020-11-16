@@ -143,7 +143,6 @@ def calculate_label_id_offsets(category_index: dict) -> dict:
     
     The retraining process wants categories in 0-index format starting at 0.
     """
-    print(category_index)
     label_id_offsets = {
         'map_to_index': {},
         'map_to_category': {}

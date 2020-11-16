@@ -10,6 +10,8 @@ from .window import get_windows, get_window_ids, map_box_to_window
 from ..utils import copy_json
 from ..utils.load_data import get_images
 
+_DEFAULT_MIN_COVERAGE = .7
+
 class Preprocessor(object):
 
     def __init__(self,
@@ -44,8 +46,9 @@ class Preprocessor(object):
         return self._cur_window_id
     
     def iterate(self,
-                win_set            = None,
-                keep_empty_windows = False):
+                win_set                    = None,
+                min_coverage       : float = _DEFAULT_MIN_COVERAGE,
+                keep_empty_windows : bool  = False):
         images_dict    = self._images_dict
         image_dir      = self._image_dir
         file_name_dict = self._file_name_dict 
@@ -70,7 +73,7 @@ class Preprocessor(object):
             image_dict["num_windows"] = len(image_dict["windows"])
     
             (image_dict_updates, windows_dict_updates) = \
-                    _map_annotations(image_id, image_dict, annotations, category_index)
+                    _map_annotations(image_id, image_dict, annotations, category_index, min_coverage=min_coverage)
             image_dict["boxes"].extend(image_dict_updates["boxes"])
             image_dict["classes"].extend(image_dict_updates["classes"])
             for (window_id, entry) in windows_dict_updates.items():
@@ -167,7 +170,7 @@ def _map_annotations(image_id : int,
                             image_dict : dict,
                             annotations : dict,
                             category_index : dict,
-                            min_coverage : float = .7,
+                            min_coverage : float = _DEFAULT_MIN_COVERAGE,
                             verbose : bool = False):
     """
     Stateless: does not modify image_dict
@@ -193,7 +196,7 @@ def _map_annotations(image_id : int,
         box = [ymin, xmin, ymax, xmax]
         image_updates["boxes"].append(box)
         image_updates["classes"].append(annotation["category_id"]) 
-        windows_ids = get_window_ids(box, image_dict)
+        windows_ids = get_window_ids(box, image_dict, min_coverage=min_coverage)
         for window_id in windows_ids:
             new_box = map_box_to_window(box, image_dict['dimensions'], image_dict['windows'][window_id])
             window_updates[window_id]["boxes"].append(new_box)

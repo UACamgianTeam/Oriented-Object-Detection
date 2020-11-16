@@ -36,7 +36,7 @@ import matplotlib
 matplotlib.use("TkAgg")
 
 preprocessor = Preprocessor(images_dict, file_name_dict, image_dir, annotations, category_index)
-for (window_np, box_set, class_set) in preprocessor.iterate(win_set=win_set):
+for (window_np, box_set, class_set) in preprocessor.iterate(win_set=win_set, min_coverage=.3):
     visualize_image_set([window_np],
             [box_set],
             [class_set],

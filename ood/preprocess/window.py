@@ -36,15 +36,13 @@ def get_windows(arr: np.ndarray, win_height: int, win_width: int,
           win = np.pad(win, ((pad_y, 0), (0, pad_x), (0,0)), mode='constant', constant_values=3)
         yield (win, xmin, ymin, new_width, new_height)
 
-def get_window_ids(box: List, image_dict: dict, min_coverage=.7) -> List:
+def get_window_ids(box: List, image_dict: dict, min_coverage) -> List:
   """ Maps an annotation box to its corresponding window_ids
   Previously associated with the image_id
 
   NOTE that there could be multiple window ids associated with one annotation
   box because of the stride on the window slider
 
-  We keep a "sliced" annotation if at least 70% of the annotation is preserved in
-  the window.
   """
   (ymin,xmin,ymax,xmax) = box
   annotation_box = [[xmin,ymax], [xmax,ymax], [xmax,ymin], [xmin,ymin]] # used for iou calculation

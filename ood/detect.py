@@ -6,7 +6,7 @@ from .preprocess import map_indices_to_category_ids
 
 from typing import List, Tuple
 
-def run_inference(model, preprocessor, label_id_offsets, win_set=None):
+def run_inference(model, preprocessor, label_id_offsets):
     p = preprocessor
     images_dict = p.images_dict
 
@@ -15,7 +15,7 @@ def run_inference(model, preprocessor, label_id_offsets, win_set=None):
     predicted_scores_list  = list()
 
     prev_window_id = -1
-    for (window_np, _, _) in p.iterate(win_set=win_set, keep_empty_windows=True):
+    for (window_np, _, _) in p.iterate(keep_empty_windows=True):
         window_id = p.cur_window_id
         if window_id != prev_window_id + 1:
             raise Exception("run_inference expects Preprocessor.iterate to yield windows in order of their id, with the ids starting at 0 and increasing by 1 with each iteration")

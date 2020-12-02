@@ -62,7 +62,8 @@ def plot_detections(image_np,
                     scores,
                     category_index,
                     figsize=(12, 16),
-                    image_name=None):
+                    image_name=None,
+                    min_threshold=min_threshold):
   """Wrapper function to visualize detections.
 
   Args:

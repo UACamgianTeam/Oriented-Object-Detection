@@ -50,6 +50,13 @@ class Preprocessor(object):
         return self._cur_window_id
     
     def iterate(self, keep_empty_windows : bool  = False):
+        """ Yields a "sliced window" for each window in each image. The images it will
+        iterate over are found in image_dir.
+
+        Each of the images are sliced into overlapping subsections called windows. These
+        windows and their corresponding categories and ground truth boxes are yielded in
+        a generator so that they are not all stored in memory at once.
+        """
         images_dict    = self._images_dict
         image_dir      = self._image_dir
         file_name_dict = self._file_name_dict 
@@ -132,13 +139,22 @@ def convert_to_tensors(train_images_np: List, gt_boxes: List, gt_classes: List,
 
 
 def map_category_ids_to_index(label_id_offsets: dict, category_ids_list: List) -> List:
-    new_list = []
-    for index, category_ids in enumerate(category_ids_list):
-        new_list.append( [label_id_offsets['map_to_index'][category_id] for category_id in category_ids_list[index]] )
-    return new_list
+    """ Maps a list of category ids to a 0-indexed array based on the
+    predefined mapping (label_id_offsets)
+
+    We must do this because training requires 0-indexed category ids.
+    """
+    if len(category_ids_list) == 1: # should return un-nested list
+        return [label_id_offsets['map_to_index'][category_id] for category_id in category_ids]
+    else:
+        new_list = []
+        for index, category_ids in enumerate(category_ids_list):
+            new_list.append( [label_id_offsets['map_to_index'][category_id] for category_id in category_ids_list[index]] )
+        return new_list
 
 def map_indices_to_category_ids(label_id_offsets: dict, indices: List) -> List:
-        return [label_id_offsets['map_to_category'][index] for index in indices]
+    """ Maps a list of 0-indexed indices back to their categories """
+    return [label_id_offsets['map_to_category'][index] for index in indices]
 
 def calculate_label_id_offsets(category_index: dict) -> dict:
     """ for each category, calculate the offset we should give it to create an array

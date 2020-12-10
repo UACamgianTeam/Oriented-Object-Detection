@@ -7,6 +7,11 @@ from .preprocess import map_indices_to_category_ids
 from typing import List, Tuple
 
 def run_inference(model, preprocessor, label_id_offsets):
+    """ The given model performs inference on each window contained in the given
+    Preprocessor class. The resulting bounding boxes, classes, and scores for
+    each window are stored and returned in images_dict. Additionally, these
+    boxes, classes, and scores are returned as lists.
+    """
     p = preprocessor
     images_dict = p.images_dict
 
@@ -18,7 +23,8 @@ def run_inference(model, preprocessor, label_id_offsets):
     for (window_np, _, _) in p.iterate(keep_empty_windows=True):
         window_id = p.cur_window_id
         if window_id != prev_window_id + 1:
-            raise Exception("run_inference expects Preprocessor.iterate to yield windows in order of their id, with the ids starting at 0 and increasing by 1 with each iteration")
+            raise Exception("run_inference expects Preprocessor.iterate to yield windows in \
+              order of their id, with the ids starting at 0 and increasing by 1 with each iteration")
         prev_window_id = window_id
         image_id  = p.cur_image_id
         window_dict = p.images_dict[image_id]["windows"][window_id]
